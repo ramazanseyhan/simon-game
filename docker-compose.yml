@@ -3,8 +3,6 @@ version: '3.8'
 services:
   simon-game:
     build: .
-    ports:
-      - "8080:80"
     container_name: simon-game-container
     restart: unless-stopped
     volumes:
@@ -12,3 +10,9 @@ services:
     environment:
       - NGINX_HOST=localhost
       - NGINX_PORT=80 
+    networks:
+      - pi_server_common_network
+
+networks:
+  pi_server_common_network:
+    external: true  
