@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  simon-game:
+    build: .
+    ports:
+      - "8080:80"
+    container_name: simon-game-container
+    restart: unless-stopped
+    volumes:
+      - ./simon-game.html:/usr/share/nginx/html/index.html:ro
+    environment:
+      - NGINX_HOST=localhost
+      - NGINX_PORT=80 

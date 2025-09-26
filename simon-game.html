@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simon Oyunu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .button-glow {
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+            transform: scale(1.1);
+        }
+        
+        .game-button {
+            transition: all 0.2s ease;
+        }
+        
+        .game-button:hover {
+            transform: scale(1.05);
+        }
+        
+        .seven-segment {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            background: #000;
+            color: #00ff00;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 2px solid #333;
+            text-align: center;
+            min-width: 80px;
+            font-size: 2rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 min-h-screen flex items-center justify-center">
+    <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl">
+        <h1 class="text-4xl font-bold text-white text-center mb-8">Simon Oyunu</h1>
+        
+        <!-- Score Display -->
+        <div class="flex justify-center mb-8">
+            <div class="seven-segment" id="scoreDisplay">00</div>
+        </div>
+        
+        <!-- Game Buttons -->
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <!-- Green Button (Top Left) -->
+            <button id="button-0" class="game-button w-32 h-32 bg-green-600 hover:bg-green-500 rounded-lg border-4 border-green-800 active:bg-green-400" data-index="0"></button>
+            
+            <!-- Red Button (Top Right) -->
+            <button id="button-1" class="game-button w-32 h-32 bg-red-600 hover:bg-red-500 rounded-lg border-4 border-red-800 active:bg-red-400" data-index="1"></button>
+            
+            <!-- Yellow Button (Bottom Left) -->
+            <button id="button-2" class="game-button w-32 h-32 bg-yellow-500 hover:bg-yellow-400 rounded-lg border-4 border-yellow-700 active:bg-yellow-300" data-index="2"></button>
+            
+            <!-- Blue Button (Bottom Right) -->
+            <button id="button-3" class="game-button w-32 h-32 bg-blue-600 hover:bg-blue-500 rounded-lg border-4 border-blue-800 active:bg-blue-400" data-index="3"></button>
+        </div>
+        
+        <!-- Control Buttons -->
+        <div class="flex justify-center gap-4">
+            <button id="startBtn" class="px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg transition-colors">
+                Oyunu Başlat
+            </button>
+            <button id="resetBtn" class="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg transition-colors">
+                Sıfırla
+            </button>
+        </div>
+        
+        <!-- Game Status -->
+        <div id="gameStatus" class="text-center mt-4 text-white font-semibold"></div>
+    </div>
+
+    <script>
+        class SimonGame {
+            constructor() {
+                this.MAX_GAME_LENGTH = 100;
+                this.gameSequence = [];
+                this.gameIndex = 0;
+                this.userIndex = 0;
+                this.isPlaying = false;
+                this.isUserTurn = false;
+                this.isGameActive = false;
+                
+                // Audio context for tones
+                this.audioContext = null;
+                this.gameTones = [196, 262, 330, 392]; // G3, C4, E4, G5 frequencies
+                
+                this.initializeElements();
+                this.setupEventListeners();
+            }
+            
+            initializeElements() {
+                this.scoreDisplay = document.getElementById('scoreDisplay');
+                this.gameStatus = document.getElementById('gameStatus');
+                this.startBtn = document.getElementById('startBtn');
+                this.resetBtn = document.getElementById('resetBtn');
+                this.buttons = [];
+                
+                for (let i = 0; i < 4; i++) {
+                    this.buttons.push(document.getElementById(`button-${i}`));
+                }
+            }
+            
+            setupEventListeners() {
+                this.startBtn.addEventListener('click', () => this.startGame());
+                this.resetBtn.addEventListener('click', () => this.resetGame());
+                
+                this.buttons.forEach((button, index) => {
+                    button.addEventListener('click', () => this.handleButtonClick(index));
+                });
+                
+                // Initialize audio context on first user interaction
+                document.addEventListener('click', () => {
+                    if (!this.audioContext) {
+                        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                }, { once: true });
+            }
+            
+            startGame() {
+                this.isGameActive = true;
+                this.gameSequence = [];
+                this.gameIndex = 0;
+                this.updateScore();
+                this.gameStatus.textContent = 'Oyun başlıyor...';
+                this.startBtn.disabled = true;
+                
+                setTimeout(() => {
+                    this.nextLevel();
+                }, 1000);
+            }
+            
+            resetGame() {
+                this.isGameActive = false;
+                this.isPlaying = false;
+                this.isUserTurn = false;
+                this.gameSequence = [];
+                this.gameIndex = 0;
+                this.userIndex = 0;
+                this.updateScore();
+                this.gameStatus.textContent = '';
+                this.startBtn.disabled = false;
+                this.enableButtons();
+            }
+            
+            nextLevel() {
+                if (this.gameIndex >= this.MAX_GAME_LENGTH) {
+                    this.gameIndex = this.MAX_GAME_LENGTH - 1;
+                    return;
+                }
+                
+                // Add random color to sequence
+                this.gameSequence[this.gameIndex] = Math.floor(Math.random() * 4);
+                this.gameIndex++;
+                this.updateScore();
+                
+                this.gameStatus.textContent = 'Sekansı izleyin...';
+                this.disableButtons();
+                
+                setTimeout(() => {
+                    this.playSequence();
+                }, 500);
+            }
+            
+            async playSequence() {
+                this.isPlaying = true;
+                
+                for (let i = 0; i < this.gameIndex; i++) {
+                    const buttonIndex = this.gameSequence[i];
+                    await this.lightButtonAndPlayTone(buttonIndex);
+                    await this.delay(50);
+                }
+                
+                this.isPlaying = false;
+                this.isUserTurn = true;
+                this.userIndex = 0;
+                this.gameStatus.textContent = 'Sıranız! Sekansı tekrarlayın...';
+                this.enableButtons();
+            }
+            
+            async lightButtonAndPlayTone(buttonIndex) {
+                const button = this.buttons[buttonIndex];
+                
+                // Light up button
+                button.classList.add('button-glow');
+                
+                // Play tone
+                this.playTone(this.gameTones[buttonIndex], 300);
+                
+                await this.delay(300);
+                
+                // Turn off button
+                button.classList.remove('button-glow');
+            }
+            
+            handleButtonClick(buttonIndex) {
+                if (!this.isUserTurn || this.isPlaying || !this.isGameActive) {
+                    return;
+                }
+                
+                // Light up and play tone for user click
+                this.lightButtonAndPlayTone(buttonIndex);
+                
+                // Check if correct
+                if (this.gameSequence[this.userIndex] !== buttonIndex) {
+                    this.gameOver();
+                    return;
+                }
+                
+                this.userIndex++;
+                
+                // Check if user completed the sequence
+                if (this.userIndex >= this.gameIndex) {
+                    this.isUserTurn = false;
+                    this.disableButtons();
+                    
+                    if (this.gameIndex > 0) {
+                        this.gameStatus.textContent = 'Doğru! Bir sonraki seviye...';
+                        setTimeout(() => {
+                            this.playLevelUpSound();
+                            setTimeout(() => {
+                                this.nextLevel();
+                            }, 1000);
+                        }, 300);
+                    }
+                }
+            }
+            
+            async gameOver() {
+                this.isGameActive = false;
+                this.isUserTurn = false;
+                this.disableButtons();
+                
+                const finalScore = this.gameIndex - 1;
+                this.gameStatus.textContent = `Oyun bitti! Skorunuz: ${finalScore}`;
+                
+                // Play game over sound
+                await this.playGameOverSound();
+                
+                // Show dashes on display
+                this.scoreDisplay.textContent = '--';
+                
+                setTimeout(() => {
+                    this.resetGame();
+                }, 2000);
+            }
+            
+            async playGameOverSound() {
+                const notes = [311, 294, 277]; // DS5, D5, CS5
+                
+                for (const note of notes) {
+                    this.playTone(note, 300);
+                    await this.delay(300);
+                }
+                
+                // Wah-wah effect
+                for (let i = 0; i < 10; i++) {
+                    for (let pitch = -10; pitch <= 10; pitch++) {
+                        this.playTone(262 + pitch, 6); // C5 + pitch
+                        await this.delay(6);
+                    }
+                }
+            }
+            
+            async playLevelUpSound() {
+                const notes = [330, 392, 659, 523, 587, 784]; // E4, G4, E5, C5, D5, G5
+                
+                for (const note of notes) {
+                    this.playTone(note, 150);
+                    await this.delay(150);
+                }
+            }
+            
+            playTone(frequency, duration) {
+                if (!this.audioContext) return;
+                
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+                oscillator.type = 'square';
+                
+                gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration / 1000);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + duration / 1000);
+            }
+            
+            updateScore() {
+                const score = this.gameIndex.toString().padStart(2, '0');
+                this.scoreDisplay.textContent = score;
+            }
+            
+            disableButtons() {
+                this.buttons.forEach(button => {
+                    button.disabled = true;
+                    button.classList.add('opacity-50', 'cursor-not-allowed');
+                });
+            }
+            
+            enableButtons() {
+                this.buttons.forEach(button => {
+                    button.disabled = false;
+                    button.classList.remove('opacity-50', 'cursor-not-allowed');
+                });
+            }
+            
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+        
+        // Initialize game when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new SimonGame();
+        });
+    </script>
+</body>
+</html> 

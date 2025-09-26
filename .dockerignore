@@ -1,0 +1,10 @@
+README.md
+.git
+.gitignore
+*.md
+.DS_Store
+Thumbs.db
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log* 
