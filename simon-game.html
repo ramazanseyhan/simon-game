@@ -41,12 +41,40 @@
             min-width: 80px;
             font-size: 2rem;
         }
+
+        .difficulty-btn {
+            transition: all 0.3s ease;
+        }
+
+        .difficulty-btn.active {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
     </style>
 </head>
 <body class="bg-gray-900 min-h-screen flex items-center justify-center">
     <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl">
         <h1 class="text-4xl font-bold text-white text-center mb-8">Simon Oyunu</h1>
         
+        <!-- Difficulty Selection -->
+        <div class="mb-6">
+            <h3 class="text-white text-center mb-4 font-semibold">Zorluk Seviyesi</h3>
+            <div class="flex justify-center gap-3">
+                <button id="easyBtn" class="difficulty-btn px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-bold rounded-lg transition-all active" data-difficulty="easy">
+                    🟢 Kolay
+                </button>
+                <button id="mediumBtn" class="difficulty-btn px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold rounded-lg transition-all" data-difficulty="medium">
+                    🟡 Orta
+                </button>
+                <button id="hardBtn" class="difficulty-btn px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-lg transition-all" data-difficulty="hard">
+                    🔴 Zor
+                </button>
+                <button id="expertBtn" class="difficulty-btn px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-lg transition-all" data-difficulty="expert">
+                    🟣 Uzman
+                </button>
+            </div>
+        </div>
+
         <!-- Score Display -->
         <div class="flex justify-center mb-8">
             <div class="seven-segment" id="scoreDisplay">00</div>
@@ -92,6 +120,35 @@
                 this.isUserTurn = false;
                 this.isGameActive = false;
                 
+                // Difficulty settings
+                this.currentDifficulty = 'easy';
+                this.difficultySettings = {
+                    easy: {
+                        sequenceDelay: 800,
+                        buttonDelay: 50,
+                        toneLength: 400,
+                        name: 'Kolay'
+                    },
+                    medium: {
+                        sequenceDelay: 600,
+                        buttonDelay: 30,
+                        toneLength: 300,
+                        name: 'Orta'
+                    },
+                    hard: {
+                        sequenceDelay: 400,
+                        buttonDelay: 20,
+                        toneLength: 200,
+                        name: 'Zor'
+                    },
+                    expert: {
+                        sequenceDelay: 250,
+                        buttonDelay: 10,
+                        toneLength: 150,
+                        name: 'Uzman'
+                    }
+                };
+                
                 // Audio context for tones
                 this.audioContext = null;
                 this.gameTones = [196, 262, 330, 392]; // G3, C4, E4, G5 frequencies
@@ -107,6 +164,14 @@
                 this.resetBtn = document.getElementById('resetBtn');
                 this.buttons = [];
                 
+                // Difficulty buttons
+                this.difficultyBtns = {
+                    easy: document.getElementById('easyBtn'),
+                    medium: document.getElementById('mediumBtn'),
+                    hard: document.getElementById('hardBtn'),
+                    expert: document.getElementById('expertBtn')
+                };
+                
                 for (let i = 0; i < 4; i++) {
                     this.buttons.push(document.getElementById(`button-${i}`));
                 }
@@ -115,6 +180,13 @@
             setupEventListeners() {
                 this.startBtn.addEventListener('click', () => this.startGame());
                 this.resetBtn.addEventListener('click', () => this.resetGame());
+                
+                // Difficulty button listeners
+                Object.keys(this.difficultyBtns).forEach(difficulty => {
+                    this.difficultyBtns[difficulty].addEventListener('click', () => {
+                        this.setDifficulty(difficulty);
+                    });
+                });
                 
                 this.buttons.forEach((button, index) => {
                     button.addEventListener('click', () => this.handleButtonClick(index));
@@ -133,14 +205,35 @@
                     }
                 }, { once: true });
             }
+
+            setDifficulty(difficulty) {
+                if (this.isGameActive) return; // Can't change difficulty during game
+                
+                this.currentDifficulty = difficulty;
+                
+                // Update button visual states
+                Object.keys(this.difficultyBtns).forEach(diff => {
+                    this.difficultyBtns[diff].classList.remove('active');
+                });
+                this.difficultyBtns[difficulty].classList.add('active');
+                
+                // Update game status
+                this.gameStatus.textContent = `Zorluk: ${this.difficultySettings[difficulty].name}`;
+            }
             
             startGame() {
                 this.isGameActive = true;
                 this.gameSequence = [];
                 this.gameIndex = 0;
                 this.updateScore();
-                this.gameStatus.textContent = 'Oyun başlıyor...';
+                this.gameStatus.textContent = `Oyun başlıyor... (${this.difficultySettings[this.currentDifficulty].name})`;
                 this.startBtn.disabled = true;
+                
+                // Disable difficulty buttons during game
+                Object.values(this.difficultyBtns).forEach(btn => {
+                    btn.disabled = true;
+                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                });
                 
                 setTimeout(() => {
                     this.nextLevel();
@@ -155,9 +248,15 @@
                 this.gameIndex = 0;
                 this.userIndex = 0;
                 this.updateScore();
-                this.gameStatus.textContent = '';
+                this.gameStatus.textContent = `Zorluk: ${this.difficultySettings[this.currentDifficulty].name}`;
                 this.startBtn.disabled = false;
                 this.enableButtons();
+                
+                // Re-enable difficulty buttons
+                Object.values(this.difficultyBtns).forEach(btn => {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                });
             }
             
             nextLevel() {
@@ -181,11 +280,12 @@
             
             async playSequence() {
                 this.isPlaying = true;
+                const settings = this.difficultySettings[this.currentDifficulty];
                 
                 for (let i = 0; i < this.gameIndex; i++) {
                     const buttonIndex = this.gameSequence[i];
                     await this.lightButtonAndPlayTone(buttonIndex);
-                    await this.delay(50);
+                    await this.delay(settings.buttonDelay);
                 }
                 
                 this.isPlaying = false;
@@ -197,14 +297,15 @@
             
             async lightButtonAndPlayTone(buttonIndex) {
                 const button = this.buttons[buttonIndex];
+                const settings = this.difficultySettings[this.currentDifficulty];
                 
                 // Light up button
                 button.classList.add('button-glow');
                 
                 // Play tone
-                this.playTone(this.gameTones[buttonIndex], 300);
+                this.playTone(this.gameTones[buttonIndex], settings.toneLength);
                 
-                await this.delay(300);
+                await this.delay(settings.toneLength);
                 
                 // Turn off button
                 button.classList.remove('button-glow');
@@ -249,7 +350,7 @@
                 this.disableButtons();
                 
                 const finalScore = this.gameIndex - 1;
-                this.gameStatus.textContent = `Oyun bitti! Skorunuz: ${finalScore}`;
+                this.gameStatus.textContent = `Oyun bitti! Skorunuz: ${finalScore} (${this.difficultySettings[this.currentDifficulty].name})`;
                 
                 // Play game over sound
                 await this.playGameOverSound();
@@ -259,7 +360,7 @@
                 
                 setTimeout(() => {
                     this.resetGame();
-                }, 2000);
+                }, 3000);
             }
             
             async playGameOverSound() {
