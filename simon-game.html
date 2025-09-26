@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Simon Oyunu</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -17,6 +17,16 @@
         
         .game-button:hover {
             transform: scale(1.05);
+        }
+        
+        /* Prevent double-tap zoom on mobile/tablet */
+        * {
+            touch-action: manipulation;
+        }
+        
+        body {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
         }
         
         .seven-segment {
@@ -108,6 +118,12 @@
                 
                 this.buttons.forEach((button, index) => {
                     button.addEventListener('click', () => this.handleButtonClick(index));
+                    
+                    // Prevent double-tap zoom on buttons
+                    button.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        this.handleButtonClick(index);
+                    });
                 });
                 
                 // Initialize audio context on first user interaction
