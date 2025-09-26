@@ -50,6 +50,24 @@
             transform: scale(1.05);
             box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
         }
+
+        .leaderboard-modal {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .leaderboard-entry {
+            transition: all 0.3s ease;
+        }
+
+        .leaderboard-entry:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+            transform: scale(1.02);
+        }
+
+        .trophy {
+            font-size: 1.5rem;
+        }
     </style>
 </head>
 <body class="bg-gray-900 min-h-screen flex items-center justify-center">
@@ -96,7 +114,7 @@
         </div>
         
         <!-- Control Buttons -->
-        <div class="flex justify-center gap-4">
+        <div class="flex justify-center gap-4 mb-4">
             <button id="startBtn" class="px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg transition-colors">
                 Oyunu Başlat
             </button>
@@ -104,9 +122,65 @@
                 Sıfırla
             </button>
         </div>
+
+        <!-- Leaderboard Button -->
+        <div class="flex justify-center">
+            <button id="leaderboardBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-colors text-sm">
+                🏆 Liderlik Tablosu
+            </button>
+        </div>
         
         <!-- Game Status -->
         <div id="gameStatus" class="text-center mt-4 text-white font-semibold"></div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboardModal" class="leaderboard-modal fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">🏆 Liderlik Tablosu</h2>
+                <button id="closeLeaderboardBtn" class="text-white hover:text-gray-300 text-2xl font-bold">×</button>
+            </div>
+            
+            <div id="leaderboardContent" class="space-y-2 mb-6">
+                <!-- Leaderboard entries will be populated here -->
+            </div>
+            
+            <div class="flex justify-center">
+                <button id="clearLeaderboardBtn" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg transition-colors text-sm">
+                    Tabloyu Temizle
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New High Score Modal -->
+    <div id="highScoreModal" class="leaderboard-modal fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold text-yellow-400 mb-4">🎉 Yeni Rekor!</h2>
+                <p class="text-white text-lg mb-4">Tebrikler! Yeni bir rekor kırdınız!</p>
+                <p class="text-2xl font-bold text-green-400 mb-6" id="newScoreText">Skorunuz: 0</p>
+                
+                <div class="mb-6">
+                    <label class="block text-white text-sm font-bold mb-2" for="playerName">
+                        İsminizi girin:
+                    </label>
+                    <input type="text" id="playerName" maxlength="15" 
+                           class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500" 
+                           placeholder="Oyuncu adı">
+                </div>
+                
+                <div class="flex justify-center gap-4">
+                    <button id="saveScoreBtn" class="px-6 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg transition-colors">
+                        Kaydet
+                    </button>
+                    <button id="skipScoreBtn" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg transition-colors">
+                        Geç
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -171,6 +245,20 @@
                     hard: document.getElementById('hardBtn'),
                     expert: document.getElementById('expertBtn')
                 };
+
+                // Leaderboard elements
+                this.leaderboardBtn = document.getElementById('leaderboardBtn');
+                this.leaderboardModal = document.getElementById('leaderboardModal');
+                this.leaderboardContent = document.getElementById('leaderboardContent');
+                this.closeLeaderboardBtn = document.getElementById('closeLeaderboardBtn');
+                this.clearLeaderboardBtn = document.getElementById('clearLeaderboardBtn');
+                
+                // High score modal elements
+                this.highScoreModal = document.getElementById('highScoreModal');
+                this.newScoreText = document.getElementById('newScoreText');
+                this.playerNameInput = document.getElementById('playerName');
+                this.saveScoreBtn = document.getElementById('saveScoreBtn');
+                this.skipScoreBtn = document.getElementById('skipScoreBtn');
                 
                 for (let i = 0; i < 4; i++) {
                     this.buttons.push(document.getElementById(`button-${i}`));
@@ -186,6 +274,27 @@
                     this.difficultyBtns[difficulty].addEventListener('click', () => {
                         this.setDifficulty(difficulty);
                     });
+                });
+
+                // Leaderboard listeners
+                this.leaderboardBtn.addEventListener('click', () => this.showLeaderboard());
+                this.closeLeaderboardBtn.addEventListener('click', () => this.hideLeaderboard());
+                this.clearLeaderboardBtn.addEventListener('click', () => this.clearLeaderboard());
+                
+                // High score modal listeners
+                this.saveScoreBtn.addEventListener('click', () => this.saveHighScore());
+                this.skipScoreBtn.addEventListener('click', () => this.skipHighScore());
+                this.playerNameInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.saveHighScore();
+                    }
+                });
+
+                // Close modals when clicking outside
+                this.leaderboardModal.addEventListener('click', (e) => {
+                    if (e.target === this.leaderboardModal) {
+                        this.hideLeaderboard();
+                    }
                 });
                 
                 this.buttons.forEach((button, index) => {
@@ -358,9 +467,16 @@
                 // Show dashes on display
                 this.scoreDisplay.textContent = '--';
                 
-                setTimeout(() => {
-                    this.resetGame();
-                }, 3000);
+                // Check if it's a high score
+                if (this.isHighScore(finalScore)) {
+                    setTimeout(() => {
+                        this.showHighScoreModal(finalScore);
+                    }, 1000);
+                } else {
+                    setTimeout(() => {
+                        this.resetGame();
+                    }, 3000);
+                }
             }
             
             async playGameOverSound() {
@@ -429,6 +545,150 @@
             
             delay(ms) {
                 return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            // Leaderboard methods
+            getLeaderboard() {
+                const leaderboard = localStorage.getItem('simonLeaderboard');
+                return leaderboard ? JSON.parse(leaderboard) : [];
+            }
+
+            saveLeaderboard(leaderboard) {
+                localStorage.setItem('simonLeaderboard', JSON.stringify(leaderboard));
+            }
+
+            isHighScore(score) {
+                const leaderboard = this.getLeaderboard();
+                const difficultyScores = leaderboard.filter(entry => entry.difficulty === this.currentDifficulty);
+                
+                // If less than 10 scores for this difficulty, it's automatically a high score
+                if (difficultyScores.length < 10) {
+                    return true;
+                }
+                
+                // Check if score is higher than the lowest score
+                const lowestScore = Math.min(...difficultyScores.map(entry => entry.score));
+                return score > lowestScore;
+            }
+
+            showHighScoreModal(score) {
+                this.newScoreText.textContent = `Skorunuz: ${score} (${this.difficultySettings[this.currentDifficulty].name})`;
+                this.playerNameInput.value = '';
+                this.highScoreModal.classList.remove('hidden');
+                this.playerNameInput.focus();
+                this.currentHighScore = score;
+            }
+
+            saveHighScore() {
+                const playerName = this.playerNameInput.value.trim() || 'Anonim';
+                const leaderboard = this.getLeaderboard();
+                
+                const newEntry = {
+                    name: playerName,
+                    score: this.currentHighScore,
+                    difficulty: this.currentDifficulty,
+                    date: new Date().toLocaleDateString('tr-TR')
+                };
+                
+                leaderboard.push(newEntry);
+                
+                // Keep only top 10 scores per difficulty
+                const difficultyScores = leaderboard.filter(entry => entry.difficulty === this.currentDifficulty);
+                difficultyScores.sort((a, b) => b.score - a.score);
+                const topDifficultyScores = difficultyScores.slice(0, 10);
+                
+                // Remove old scores for this difficulty and add new top scores
+                const otherScores = leaderboard.filter(entry => entry.difficulty !== this.currentDifficulty);
+                const updatedLeaderboard = [...otherScores, ...topDifficultyScores];
+                
+                this.saveLeaderboard(updatedLeaderboard);
+                this.hideHighScoreModal();
+                this.resetGame();
+            }
+
+            skipHighScore() {
+                this.hideHighScoreModal();
+                this.resetGame();
+            }
+
+            hideHighScoreModal() {
+                this.highScoreModal.classList.add('hidden');
+            }
+
+            showLeaderboard() {
+                this.updateLeaderboardDisplay();
+                this.leaderboardModal.classList.remove('hidden');
+            }
+
+            hideLeaderboard() {
+                this.leaderboardModal.classList.add('hidden');
+            }
+
+            updateLeaderboardDisplay() {
+                const leaderboard = this.getLeaderboard();
+                
+                if (leaderboard.length === 0) {
+                    this.leaderboardContent.innerHTML = '<p class="text-gray-400 text-center">Henüz kayıtlı skor yok</p>';
+                    return;
+                }
+                
+                // Group by difficulty and sort
+                const groupedScores = {};
+                leaderboard.forEach(entry => {
+                    if (!groupedScores[entry.difficulty]) {
+                        groupedScores[entry.difficulty] = [];
+                    }
+                    groupedScores[entry.difficulty].push(entry);
+                });
+                
+                // Sort each difficulty group
+                Object.keys(groupedScores).forEach(difficulty => {
+                    groupedScores[difficulty].sort((a, b) => b.score - a.score);
+                });
+                
+                let html = '';
+                const difficultyOrder = ['expert', 'hard', 'medium', 'easy'];
+                
+                difficultyOrder.forEach(difficulty => {
+                    if (groupedScores[difficulty]) {
+                        const difficultyName = this.difficultySettings[difficulty].name;
+                        const difficultyIcon = {
+                            easy: '🟢',
+                            medium: '🟡', 
+                            hard: '🔴',
+                            expert: '🟣'
+                        }[difficulty];
+                        
+                        html += `<div class="mb-4">
+                            <h3 class="text-lg font-bold text-white mb-2">${difficultyIcon} ${difficultyName}</h3>`;
+                        
+                        groupedScores[difficulty].slice(0, 5).forEach((entry, index) => {
+                            const trophy = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                            html += `
+                                <div class="leaderboard-entry bg-gray-700 rounded-lg p-3 flex justify-between items-center">
+                                    <div class="flex items-center">
+                                        <span class="trophy mr-2">${trophy}</span>
+                                        <span class="text-white font-medium">${entry.name}</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-green-400 font-bold">${entry.score}</div>
+                                        <div class="text-gray-400 text-xs">${entry.date}</div>
+                                    </div>
+                                </div>`;
+                        });
+                        
+                        html += '</div>';
+                    }
+                });
+                
+                this.leaderboardContent.innerHTML = html;
+            }
+
+            clearLeaderboard() {
+                if (confirm('Liderlik tablosunu temizlemek istediğinizden emin misiniz?')) {
+                    localStorage.removeItem('simonLeaderboard');
+                    this.updateLeaderboardDisplay();
+                }
             }
         }
         
